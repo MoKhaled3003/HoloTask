@@ -134,6 +134,7 @@ Use tools like **Postman** or **cURL** to test the API endpoints. Refer to the S
 ---
 
 ## 4. Common Commands
+please note if you run unit test you will also run end 2 end test, it will populate db with some data 
 
 ### Run Linting
 
