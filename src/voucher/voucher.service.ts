@@ -1,7 +1,7 @@
 // src/voucher/voucher.service.ts
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
+import { MoreThan, Repository, DataSource } from 'typeorm';
 import { Voucher } from './voucher.entity';
 import { Customer } from '../customer/customer.entity';
 import { SpecialOffer } from '../special-offer/special-offer.entity';
@@ -14,6 +14,7 @@ export class VoucherService {
     private customerRepository: Repository<Customer>,
     @InjectRepository(SpecialOffer)
     private specialOfferRepository: Repository<SpecialOffer>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createVoucher(
@@ -70,22 +71,34 @@ export class VoucherService {
     code: string,
     email: string,
   ): Promise<{ discountPercentage: number }> {
-    const voucher = await this.voucherRepository.findOne({
-      where: { code },
-      relations: ['customer', 'specialOffer'],
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const voucher = await queryRunner.manager.findOne(Voucher, {
+        where: { code },
+        relations: ['customer', 'specialOffer'],
+      });
 
-    if (!voucher) throw new Error('Voucher not found');
-    if (voucher.isUsed) throw new Error('Voucher already used');
-    const expirationDate = new Date(voucher.expirationDate);
-    if (expirationDate < new Date()) throw new Error('Voucher expired');
-    if (voucher.customer.email !== email) throw new Error('Invalid email');
+      if (!voucher) throw new Error('Voucher not found');
+      if (voucher.isUsed) throw new Error('Voucher already used');
+      const expirationDate = new Date(voucher.expirationDate);
+      if (expirationDate < new Date()) throw new Error('Voucher expired');
+      if (voucher.customer.email !== email) throw new Error('Invalid email');
 
-    voucher.isUsed = true;
-    voucher.usedAt = new Date();
-    await this.voucherRepository.save(voucher);
+      voucher.isUsed = true;
+      voucher.usedAt = new Date();
 
-    return { discountPercentage: voucher.specialOffer.discountPercentage };
+      await queryRunner.manager.save(voucher);
+      await queryRunner.commitTransaction();
+
+      return { discountPercentage: voucher.specialOffer.discountPercentage };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async getCustomerVouchers(email: string): Promise<Voucher[]> {
