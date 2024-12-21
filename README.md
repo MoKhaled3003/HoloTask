@@ -20,7 +20,7 @@ Before running the project, ensure the following tools are installed on your sys
 ### Step 1: Clone the Repository
 
 ```bash
-git clone <https://github.com/MoKhaled3003/HoloTask.git>
+git clone https://github.com/MoKhaled3003/HoloTask.git
 cd HoloTask
 ```
 
