@@ -1,4 +1,3 @@
-// src/voucher/voucher.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Voucher } from './voucher.entity';

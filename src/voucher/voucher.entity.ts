@@ -1,4 +1,3 @@
-// src/voucher/voucher.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Customer } from '../customer/customer.entity';
 import { SpecialOffer } from '../special-offer/special-offer.entity';
