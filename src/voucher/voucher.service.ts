@@ -52,6 +52,7 @@ export class VoucherService {
     });
 
     if (!specialOffer) throw new Error('Special offer not found');
+    if (customers.length == 0) throw new Error('No Customers Found');
 
     const vouchers = customers.map((customer) => {
       const code = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -73,17 +74,33 @@ export class VoucherService {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
+
     try {
       const voucher = await queryRunner.manager.findOne(Voucher, {
         where: { code },
-        relations: ['customer', 'specialOffer'],
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (!voucher) throw new Error('Voucher not found');
       if (voucher.isUsed) throw new Error('Voucher already used');
       const expirationDate = new Date(voucher.expirationDate);
       if (expirationDate < new Date()) throw new Error('Voucher expired');
-      if (voucher.customer.email !== email) throw new Error('Invalid email');
+
+      const customer = await queryRunner.manager.findOne(Customer, {
+        where: { id: voucher.customerId },
+      });
+
+      if (!customer || customer.email !== email) {
+        throw new Error('Invalid email');
+      }
+
+      const specialOffer = await queryRunner.manager.findOne(SpecialOffer, {
+        where: { id: voucher.specialOfferId },
+      });
+
+      if (!specialOffer) {
+        throw new Error('Special offer not found');
+      }
 
       voucher.isUsed = true;
       voucher.usedAt = new Date();
@@ -91,7 +108,7 @@ export class VoucherService {
       await queryRunner.manager.save(voucher);
       await queryRunner.commitTransaction();
 
-      return { discountPercentage: voucher.specialOffer.discountPercentage };
+      return { discountPercentage: specialOffer.discountPercentage };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
